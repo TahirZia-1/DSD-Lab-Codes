@@ -1,0 +1,72 @@
+module display_tahir(
+    input wire clk,           // 100MHz clock from Nexys DDR4
+    input wire reset,         // Reset button
+    output reg [7:0] an,      // Anode signals for 8 digits (active low)
+    output reg [7:0] seg      // Cathode signals for segments (active low)
+);
+
+    // Parameters for clock division
+    parameter CLK_FREQ = 100_000_000;  // 100 MHz
+    parameter REFRESH_FREQ = 1000;     // 1 kHz refresh rate
+    
+    // Counter for refreshing the display
+    reg [31:0] refresh_counter = 0;
+    reg [2:0] digit_select = 0;        // Current digit being refreshed (0-7)
+    
+    // Define the letter patterns
+    // Segment order: a, b, c, d, e, f, g, dp
+    // 0 = ON, 1 = OFF (active low)
+   parameter [7:0] LETTER_T = 8'b1000_0111;  // segments g, f, e
+     parameter [7:0] LETTER_A = 8'b1000_1000;  // segments a, b, c, e, f, g
+     parameter [7:0] LETTER_H = 8'b1000_1001;  // segments b, c, e, f, g
+     parameter [7:0] LETTER_I = 8'b1111_1001;  // segments b, c
+     parameter [7:0] LETTER_R = 8'b1010_1111;  // segments a, b, e, g
+     parameter [7:0] BLANK = 8'b1111_1111;     // All segments off
+     
+    // Array to store segment patterns for each digit
+    reg [7:0] segment_patterns [0:7];
+    
+    // Initialize segment patterns
+    initial begin
+        segment_patterns[0] = LETTER_T;  // Rightmost digit
+        segment_patterns[1] = LETTER_A;
+        segment_patterns[2] = LETTER_H;
+        segment_patterns[3] = LETTER_I;
+        segment_patterns[4] = LETTER_R;
+        segment_patterns[5] = BLANK;     // Remaining digits are blank
+        segment_patterns[6] = BLANK;
+        segment_patterns[7] = BLANK;     // Leftmost digit
+    end
+    
+    // Clock divider for display refresh
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            refresh_counter <= 0;
+            digit_select <= 0;
+        end else begin
+            // Refresh counter
+            if (refresh_counter >= (CLK_FREQ / REFRESH_FREQ) / 8 - 1) begin
+                refresh_counter <= 0;
+                if (digit_select >= 7)
+                    digit_select <= 0;
+                else
+                    digit_select <= digit_select + 1;
+            end else begin
+                refresh_counter <= refresh_counter + 1;
+            end
+        end
+    end
+    
+    // Display control - multiplexing through all 8 digits quickly
+    always @(*) begin
+        // By default, turn off all anodes
+        an = 8'b1111_1111;
+        
+        // Enable only the current digit (active low)
+        an[digit_select] = 1'b0;
+        
+        // Set the segment pattern for the current digit
+        seg = segment_patterns[7-digit_select];  // Reverse order to match AN[0] = rightmost digit
+    end
+    
+endmodule
