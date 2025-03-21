@@ -70,3 +70,50 @@ module display_tahir(
     end
     
 endmodule
+
+//////////////////ANOTHER SHORTER WAY///////////////////////
+
+module display_tahir(
+    input wire clk,           
+    input wire reset,         
+    output reg [7:0] an,      
+    output reg [7:0] seg      
+);
+
+    parameter CLK_FREQ = 100_000_000;  
+    parameter REFRESH_FREQ = 1000;     
+
+    reg [31:0] refresh_counter = 0;
+    reg [2:0] digit_select = 0;        
+
+    // Define letter patterns (active low)
+    localparam [7:0] LETTERS [0:7] = {
+        8'b1111_1111,  // BLANK (Leftmost)
+        8'b1111_1111,  // BLANK
+        8'b1111_1111,  // BLANK
+        8'b1010_1111,  // R
+        8'b1111_1001,  // I
+        8'b1000_1001,  // H
+        8'b1000_1000,  // A
+        8'b1000_0111   // T (Rightmost)
+    };
+
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            refresh_counter <= 0;
+            digit_select <= 0;
+        end else if (refresh_counter >= (CLK_FREQ / REFRESH_FREQ) / 8 - 1) begin
+            refresh_counter <= 0;
+            digit_select <= (digit_select + 1) % 8;
+        end else begin
+            refresh_counter <= refresh_counter + 1;
+        end
+    end
+
+    always @(*) begin
+        an = 8'b1111_1111;         
+        an[digit_select] = 1'b0;   
+        seg = LETTERS[7 - digit_select];  
+    end
+
+endmodule
